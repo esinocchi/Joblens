@@ -76,16 +76,16 @@ Gmail API (ready) → Pub/Sub Topic → Push Subscription → ngrok Tunnel → l
 - **Subscription**: projects/joblens-466219/subscriptions/gmail-webhook-sub
 - **Test Subscription**: projects/joblens-466219/subscriptions/gmail-events-sub (for debugging)
 
-## Tomorrow's Plan (Day 2)
+# Tomorrow's Plan (Day 2)
 
-### Development Tasks
+## Development Tasks
 1. **Restart ngrok** and update subscription with new URL
 2. **Initialize Rust project**: `cargo init rust-ingestor`
 3. **Build webhook skeleton**: Handle POST `/gmail-event` requests
 4. **Test integration**: Verify webhook stops Pub/Sub retries
 5. **Prepare for Gmail watch**: Ready to receive real Gmail notifications
 
-### Success Criteria
+## Success Criteria
 - [ ] Rust server returns HTTP 200 to stop Pub/Sub retries
 - [ ] Webhook logs decoded message payloads
 - [ ] curl tests pass (local verification)
