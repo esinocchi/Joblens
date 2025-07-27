@@ -7,6 +7,10 @@ use axum::{
 
 use serde::{Deserialize, Serialize}; // Serde is a library for serializing and deserializing JSON
 
+// imports the str and base64 types
+use std::str;
+use base64; 
+
 
 /*
     PubSubMessage is the main struct that contains the message and subscription that we receive from the webhook
@@ -34,6 +38,17 @@ struct PubSubData {
 };
 
 
+/*
+Example of PubSubMessage:
+{
+  "message": {
+    "data": "eyJlbWFpbF9hZGRyZXNzIjoidXNlckBleGFtcGxlLmNvbSIsImhpc3RvcnlfaWQiOiIxMjM0NTYifQ==",
+    "messageId": "unique_message_id",
+    "publishTime": "2021-05-05T12:00:00.000Z"
+  },
+  "subscription": "projects/my-project/subscriptions/my-subscription"
+}
+*/
 #[derive(Debug, Deserialize)]
 struct PubSubMessage {
     message: PubSubData,
@@ -41,10 +56,27 @@ struct PubSubMessage {
 };
 
 
-async fn handle_webhook() -> StatusCode {
-    println!("Webhook recieved!");
-    StatusCode::OK // returns HTTP status code 200 OK
+fn parse_gmail_notifcation(payload: &PubSubMessage) -> Result<GmailNotification, String> {
+    // Retrieves data from the PubSubMessage to PubsubData payload
+    let base_64_data = &payload.message.data;
+
+    // Decodes the base64 data into a byte array
+    let data_bytes_result = base64::decode(base_64_data)
+        .map_err(|e| format!("Error decoding base64 data: {}", e))?;
+
+    // Converts the byte array into a string
+    let data_str = String::from_utf8(data_bytes_result)
+        .map_err(|e| format!("Error converting to string: {}", e))?;
+
+    // Converts the string into a GmailNotification struct
+    let gmail_notification: GmailNotification = serde_json::from_str(&data_str)
+        .map_err(|e| format!("Error deserializing JSON: {}", e))?;
+
+    Ok(gmail_notification)
 }
+
+// Json(payload): Json<PubSubMessage> converts the JSON payload into a PubSubMessage struct
+async fn handle_webhook(Json(payload): Json<PubSubMessage>) -> StatusCode {}
 
 
 #[tokio::main]
