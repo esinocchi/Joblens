@@ -1,6 +1,6 @@
 use axum::{
     extract::Json, // Extracts JSON data from the request body
-    routing::{post, get}, // function to handle POST requests
+    routing::post, // function to handle POST requests
     Router,       // Creates URL routing
     http::StatusCode,
 };
@@ -9,23 +9,24 @@ use serde::{Deserialize, Serialize}; // Serde is a library for serializing and d
 
 // imports the str and base64 types
 use std::str;
-use base64; 
+use base64::{Engine as _, engine::general_purpose};
+
+
 
 
 /*
-    PubSubMessage is the main struct that contains the message and subscription that we receive from the webhook
-    PubSubData is the struct that contains the data, message id, and publish time
-    GmailNotification is the struct that contains the email address and history id after we deserialize the data
+    - PubSubMessage is the main struct that contains the message and subscription that we receive from the webhook
+    - PubSubData is the struct that contains the data, message id, and publish time
+    - GmailNotification is the struct that contains the email address and history id after we deserialize the data
+
+    - Debug makes the struct printable
+    - Deserialize makes the struct creatable from JSON
 */
-
-
-// Debug makes the struct printable
-// Deserialize makes the struct creatable from JSON
 #[derive(Debug, Deserialize)]
 struct GmailNotification {
     email_address: String,
     history_id: String,
-};
+}
 
 
 #[derive(Debug, Deserialize)]
@@ -35,7 +36,7 @@ struct PubSubData {
     message_id: String,
     #[serde(rename = "publishTime")]
     publish_time: String,
-};
+}
 
 
 /*
@@ -53,30 +54,47 @@ Example of PubSubMessage:
 struct PubSubMessage {
     message: PubSubData,
     subscription: String,
-};
+}
 
+// ? is a propogation shorthand that tells Rust:
+// Error -> return the error
+// Ok -> Keep going
 
-fn parse_gmail_notifcation(payload: &PubSubMessage) -> Result<GmailNotification, String> {
-    // Retrieves data from the PubSubMessage to PubsubData payload
-    let base_64_data = &payload.message.data;
-
-    // Decodes the base64 data into a byte array
-    let data_bytes_result = base64::decode(base_64_data)
+// Decodes the base64 data into a byte array
+fn decode_base64_data(base64: &str) -> Result<Vec<u8>, String> {
+    let bytes = base64::engine::general_purpose::STANDARD.decode(base64)
         .map_err(|e| format!("Error decoding base64 data: {}", e))?;
+    Ok(bytes)
+}
 
-    // Converts the byte array into a string
-    let data_str = String::from_utf8(data_bytes_result)
-        .map_err(|e| format!("Error converting to string: {}", e))?;
+// Converts the byte array into a string
+fn bytes_to_json(bytes: Vec<u8>) -> Result<String, String> {
+    let json_str = String::from_utf8(bytes)
+        .map_err(|e| format!("Error converting to JSON: {}", e))?;
+    Ok(json_str)
+}
 
-    // Converts the string into a GmailNotification struct
-    let gmail_notification: GmailNotification = serde_json::from_str(&data_str)
-        .map_err(|e| format!("Error deserializing JSON: {}", e))?;
+// Converts the string into a GmailNotification struct
+fn json_to_gmail_notification(json: &str) -> Result<GmailNotification, String> {
+    let gmail_notification: GmailNotification = serde_json::from_str(&json)
+        .map_err(|e|  format!("Error deserializing JSONL: {}", e))?;
+    Ok(gmail_notification)
+}
 
+
+// Parses the GmailNotification struct from the PubSubMessage
+fn parse_gmail_notifcation(payload: &PubSubMessage) -> Result<GmailNotification, String> {
+    let base_64_data = &payload.message.data;
+    let bytes = decode_base64_data(base_64_data)?;
+    let json_str = bytes_to_json(bytes)?;
+    let gmail_notification = json_to_gmail_notification(&json_str)?;    
     Ok(gmail_notification)
 }
 
 // Json(payload): Json<PubSubMessage> converts the JSON payload into a PubSubMessage struct
-async fn handle_webhook(Json(payload): Json<PubSubMessage>) -> StatusCode {}
+async fn handle_webhook(Json(payload): Json<PubSubMessage>) -> StatusCode {
+    StatusCode::OK
+}
 
 
 #[tokio::main]
